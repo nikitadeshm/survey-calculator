@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survey Level Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Survey Level Calculator</h1>
+    
+    <div class="input-group">
+        <label for="point">Point ID:</label>
+        <input type="text" id="point" placeholder="e.g., BM1, TP1">
+    </div>
+    
+    <div class="input-group">
+        <label for="bs">Backsight (BS):</label>
+        <input type="number" step="0.001" id="bs" placeholder="in meters">
+    </div>
+    
+    <div class="input-group">
+        <label for="fs">Foresight (FS):</label>
+        <input type="number" step="0.001" id="fs" placeholder="in meters">
+    </div>
+    
+    <div class="input-group">
+        <label for="hi">Height of Instrument (HI):</label>
+        <input type="number" step="0.001" id="hi" readonly>
+    </div>
+    
+    <div class="input-group">
+        <label for="rl">Reduced Level (RL):</label>
+        <input type="number" step="0.001" id="rl" readonly>
+    </div>
+    
+    <button onclick="calculate()">Calculate</button>
+    <button onclick="exportToCSV()">Export to Excel (CSV)</button>
+    <button onclick="clearData()">Clear Data</button>
+    
+    <table id="results">
+        <thead>
+            <tr>
+                <th>Point</th>
+                <th>BS</th>
+                <th>HI</th>
+                <th>FS</th>
+                <th>Rise</th>
+                <th>Fall</th>
+                <th>RL</th>
+            </tr>
+        </thead>
+        <tbody id="resultsBody">
+        </tbody>
+    </table>
+
+    <script>
+        let surveyData = [];
+        let lastRL = 0; // Initialize with benchmark RL if available
+        
+        function calculate() {
+            const point = document.getElementById('point').value;
+            const bs = parseFloat(document.getElementById('bs').value);
+            const fs = parseFloat(document.getElementById('fs').value);
+            
+            if (!point || isNaN(bs)) {
+                alert("Please enter Point ID and Backsight!");
+                return;
+            }
+            
+            // Calculate HI and RL
+            const hi = surveyData.length > 0 ? lastRL + bs : bs;
+            const rl = hi - (fs || 0);
+            
+            // Calculate Rise/Fall
+            let rise = 0;
+            let fall = 0;
+            if (surveyData.length > 0 && !isNaN(fs)) {
+                const prevBS = surveyData[surveyData.length - 1].bs;
+                const diff = prevBS - fs;
+                rise = diff > 0 ? diff : 0;
+                fall = diff < 0 ? Math.abs(diff) : 0;
+            }
+            
+            // Update display
+            document.getElementById('hi').value = hi.toFixed(3);
+            document.getElementById('rl').value = rl.toFixed(3);
+            
+            // Store data
+            const entry = {
+                point, bs, hi, fs: fs || 0, rise, fall, rl
+            };
+            surveyData.push(entry);
+            lastRL = rl;
+            
+            // Update table
+            updateTable();
+            
+            // Clear inputs for next entry
+            document.getElementById('point').value = '';
+            document.getElementById('fs').value = '';
+        }
+        
+        function updateTable() {
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = '';
+            
+            surveyData.forEach(entry => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${entry.point}</td>
+                    <td>${entry.bs.toFixed(3)}</td>
+                    <td>${entry.hi.toFixed(3)}</td>
+                    <td>${entry.fs.toFixed(3)}</td>
+                    <td>${entry.rise.toFixed(3)}</td>
+                    <td>${entry.fall.toFixed(3)}</td>
+                    <td>${entry.rl.toFixed(3)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        function exportToCSV() {
+            if (surveyData.length === 0) {
+                alert("No data to export!");
+                return;
+            }
+            
+            // CSV header
+            let csv = "Point,BS,HI,FS,Rise,Fall,RL\n";
+            
+            // Add data rows
+            surveyData.forEach(entry => {
+                csv += `${entry.point},${entry.bs.toFixed(3)},${entry.hi.toFixed(3)},${entry.fs.toFixed(3)},${entry.rise.toFixed(3)},${entry.fall.toFixed(3)},${entry.rl.toFixed(3)}\n`;
+            });
+            
+            // Create download link
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'survey_data.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        
+        function clearData() {
+            surveyData = [];
+            lastRL = 0;
+            document.getElementById('resultsBody').innerHTML = '';
+            document.getElementById('hi').value = '';
+            document.getElementById('rl').value = '';
+        }
+    </script>
+</body>
+</html>
